@@ -184,7 +184,7 @@ deployByUser此目录下的用例支持任意用户都可以部署NFT合约，�
 **目前使用最多的是mintByManager目录下的ERC1155合约, 如果不确定要用什么，建议用这个**  
 
 2. 运行JAVA Demo程序  
-- 调用 [[BlockChainTest.java]](https://github.com/andyYuanFZM/btyDemo/blob/master/BlockChain.java)  中的createAccount方法，生成地址和私钥  
+- 调用 [[BlockChainTest.java]](https://github.com/andyYuanFZM/btyDemo/blob/master/src/test/java/com/chain33/cn/BlockChainTest.java)  中的createAccount方法，生成地址和私钥  
 - 修改对应子目录下的ERC1155Test或ERC721Test文件，将上一步生成的内容，分别填充到以下几个参数中，注意私钥即资产，要隐私存放，而地址是可以公开的  
 ```  
 // 管理员地址和私钥
