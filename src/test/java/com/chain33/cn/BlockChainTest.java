@@ -25,7 +25,7 @@ public class BlockChainTest {
 	RpcClient mclient = new RpcClient("https://jiedian2.bityuan.com:8801");
 	
 	// 平行链所在服务器IP地址
-	String paraIp = "localhost";
+	String paraIp = "172.22.16.179";
 	// 平行链服务端口
 	int paraPort = 8901;
 	RpcClient pclient = new RpcClient(paraIp, paraPort);
