@@ -8,7 +8,6 @@ import org.junit.Test;
 import com.alibaba.fastjson.JSONObject;
 import com.chain33.cn.CommonUtil;
 
-import cn.chain33.javasdk.client.Account;
 import cn.chain33.javasdk.client.RpcClient;
 import cn.chain33.javasdk.model.AccountInfo;
 import cn.chain33.javasdk.model.decode.DecodeRawTransaction;
@@ -63,12 +62,12 @@ public class ERC721Test {
 	    @Test
 	    public void testERC721() throws Exception {
 	    		    	
-	    	// =======> 为用户A和B生成私钥和地址
-	    	AccountInfo infoA = createAccount();
+	    	// =======> step1： 为用户A和B生成私钥和地址
+	    	AccountInfo infoA = CommonUtil.createAccount();
 	    	useraAddress = infoA.getAddress();
 	    	useraPrivateKey = infoA.getPrivateKey();
 	    	
-	    	AccountInfo infoB = createAccount();
+	    	AccountInfo infoB = CommonUtil.createAccount();
 	    	userbAddress = infoB.getAddress();
 	    	userbPrivateKey = infoB.getPrivateKey();
 	    	
@@ -89,7 +88,13 @@ public class ERC721Test {
 	        
 	        int tokenId = 10000;
 	        byte[] initNFT = EvmUtil.encodeParameter(CommonUtil.abi_User_721, "mint", useraAddress, tokenId, "{\"图片描述\":\"由xxx创作\";\"创作时间\":\"2022/12/25\";\"图片存放路径\":\"http://www.baidu.com\"}");
-	    	String txEncode = EvmUtil.callEvmContractWithhold(initNFT,"", 0, execer, useraPrivateKey, contractAddress);
+	    	
+	    	// mint NFT的GAS费
+	        String evmCode = EvmUtil.getCallEvmEncode(initNFT, "mint", 0, contractAddress, paraName);
+	        long gas = client.queryEVMGas("evm", evmCode, useraAddress);
+	        System.out.println("调用mint方法的Gas fee:" + gas);
+	        
+	        String txEncode = EvmUtil.callEvmContractWithholdByGas(initNFT,"", 0, execer, useraPrivateKey, contractAddress, gas);
 	    	// 再调用代扣交易方法，用代扣私钥对交易组做签名
 	    	createNobalance(txEncode, paracontractAddress, useraPrivateKey, withholdPrivateKey);
 	        
@@ -100,12 +105,17 @@ public class ERC721Test {
 	        // =======>  从A地址向B地址转账,使用代扣交易
 	        // 用户A将第1个NFT转给用户B
 	    	byte[] transfer = EvmUtil.encodeParameter(CommonUtil.abi_User_721, "safeTransferFrom", useraAddress, userbAddress, tokenId);
+	    	
+	    	// transfer NFT的GAS费
+	        evmCode = EvmUtil.getCallEvmEncode(transfer, "transfer", 0, contractAddress, paraName);
+	        gas = client.queryEVMGas("evm", evmCode, useraAddress);
+	        System.out.println("调用transfer方法的Gas fee:" + gas);
+	    	
 	    	// 构造转账交易体，先用用户A对此笔交易签名，
-	    	txEncode = EvmUtil.callEvmContractWithhold(transfer,"", 0, execer, useraPrivateKey, contractAddress);
+	    	txEncode = EvmUtil.callEvmContractWithholdByGas(transfer,"", 0, execer, useraPrivateKey, contractAddress, gas);
 	    	// 再调用代扣交易方法，用代扣私钥对交易组做签名
 	    	createNobalance(txEncode, paracontractAddress, useraPrivateKey, withholdPrivateKey);
 
-	        
 	        // =======>  查询用户A和用户B地址下的余额
 	        packAbiGet = EvmUtil.encodeParameter(CommonUtil.abi_User_721, "balanceOf", useraAddress);
 	        queryContract(packAbiGet, contractAddress, "转账后用户A,NFTID=" + tokenId + "余额");
@@ -116,16 +126,6 @@ public class ERC721Test {
 	        // =======>   查询token URI
 	        packAbiGet = EvmUtil.encodeParameter(CommonUtil.abi_User_721, "tokenURI", tokenId);
 	        queryContractString(packAbiGet, contractAddress, "NFTID=" + tokenId + "的URI信息");
-	    }
-	    
-	    /**
-	     * Step1: 生成私钥，地址
-	     * 一般在用户注册时调用，生成后在数据库中和用户信息绑定，后续直接从库中查出来使用
-	     */
-	    private AccountInfo createAccount() {
-	    	Account account = new Account();
-			AccountInfo accountInfo = account.newAccountLocal();
-			return accountInfo;
 	    }
 	    
 	    /**

@@ -8,7 +8,6 @@ import org.junit.Test;
 import com.alibaba.fastjson.JSONObject;
 import com.chain33.cn.CommonUtil;
 
-import cn.chain33.javasdk.client.Account;
 import cn.chain33.javasdk.client.RpcClient;
 import cn.chain33.javasdk.model.AccountInfo;
 import cn.chain33.javasdk.model.decode.DecodeRawTransaction;
@@ -57,11 +56,11 @@ public class ERC1155Test {
     	
     	
     	// =======> step1： 为用户A和B生成私钥和地址
-    	AccountInfo infoA = createAccount();
+    	AccountInfo infoA = CommonUtil.createAccount();
     	useraAddress = infoA.getAddress();
     	useraPrivateKey = infoA.getPrivateKey();
     	
-    	AccountInfo infoB = createAccount();
+    	AccountInfo infoB = CommonUtil.createAccount();
     	userbAddress = infoB.getAddress();
     	userbPrivateKey = infoB.getPrivateKey();
     	
@@ -95,8 +94,14 @@ public class ERC1155Test {
         
         // 构造合约调用, mint对应solidity合约里的方法名， useraAddress, ids, amounts这三项对应合约里的参数。  将NFT发行在用户A地址下
         byte[] initNFT = EvmUtil.encodeParameter(CommonUtil.abi_User_1155, "mint", useraAddress, ids, amounts, uris);
+        
+    	// mint NFT的GAS费
+        String evmCode = EvmUtil.getCallEvmEncode(initNFT, "mint", 0, contractAddress, paraName);
+        long gas = client.queryEVMGas("evm", evmCode, useraAddress);
+        System.out.println("调用mint方法的Gas fee:" + gas);
+        
     	// 构造发行NFT交易体，用户A对此笔交易签名：表示用户A有发行NFT的权限
-    	String txEncode = EvmUtil.callEvmContractWithhold(initNFT,"", 0, execer, useraPrivateKey, contractAddress);
+    	String txEncode = EvmUtil.callEvmContractWithholdByGas(initNFT,"", 0, execer, useraPrivateKey, contractAddress, gas);
     	// 再调用代扣交易方法，用代扣私钥对交易组做签名
     	createNobalance(txEncode, paracontractAddress, useraPrivateKey, withholdPrivateKey);
         
@@ -108,15 +113,20 @@ public class ERC1155Test {
         queryContract(packAbiGet, contractAddress, "转账前用户A,NFTID=" + ids[1] + "余额");
         
         // =======>  从A地址向B地址转账,使用代扣交易
-
+        
         // 用户A将第1个NFT中的50个转给用户B
     	byte[] transfer = EvmUtil.encodeParameter(CommonUtil.abi_User_1155, "transferArtNFT", userbAddress, ids[0], 50);
+    	
+    	// transfer NFT的GAS费
+        evmCode = EvmUtil.getCallEvmEncode(transfer, "transfer", 0, contractAddress, paraName);
+        gas = client.queryEVMGas("evm", evmCode, useraAddress);
+        System.out.println("调用transfer方法的Gas fee:" + gas);
+    	
     	// 构造转账交易体，先用用户A对此笔交易签名，
-    	txEncode = EvmUtil.callEvmContractWithhold(transfer,"", 0, execer, useraPrivateKey, contractAddress);
+    	txEncode = EvmUtil.callEvmContractWithholdByGas(transfer,"", 0, execer, useraPrivateKey, contractAddress, gas);
     	// 再调用代扣交易方法，用代扣私钥对交易组做签名
     	createNobalance(txEncode, paracontractAddress, useraPrivateKey, withholdPrivateKey);
 
-        
         // =======>  查询用户A地址下的余额
         packAbiGet = EvmUtil.encodeParameter(CommonUtil.abi_User_1155, "balanceOf", useraAddress, ids[0]);
         queryContract(packAbiGet, contractAddress, "转账后用户A,NFTID=" + ids[0] + "余额");
@@ -132,21 +142,10 @@ public class ERC1155Test {
         // =======>  查询指定tokenid的uri信息
         packAbiGet = EvmUtil.encodeParameter(CommonUtil.abi_User_1155, "uri", ids[1]);
         queryContractString(packAbiGet, contractAddress, "NFTID=" + ids[1] + "的URI信息");
+    }
         
-    }
-    
     /**
-     * Step1: 生成私钥，地址
-     * 一般在用户注册时调用，生成后在数据库中和用户信息绑定，后续直接从库中查出来使用
-     */
-    private AccountInfo createAccount() {
-    	Account account = new Account();
-		AccountInfo accountInfo = account.newAccountLocal();
-		return accountInfo;
-    }
-    
-    /**
-     * Step2:部署合约
+     * 部署合约
      * @throws Exception
      */
     private String deployContractByNoBalance(String execer, String paracontractAddress, String userAddress, String userPrivateKey, String withHoldPrivateKey) throws Exception {
@@ -156,7 +155,7 @@ public class ERC1155Test {
     	// 部署合约GAS费
         String evmCode = EvmUtil.getCreateEvmEncode(code, "", "deploy ERC1155 contract", paraName);
         long gas = client.queryEVMGas("evm", evmCode, userAddress);
-        System.out.println("Gas fee is:" + gas);
+        System.out.println("部署合约的Gas fee:" + gas);
                 
         // 通过合约code, 管理员私钥，平行链名称+evm,手续费等参数构造部署合约交易，并签名
         String txEncode = EvmUtil.createEvmContractWithhold(code, "", "evm-sdk-test", userPrivateKey, execer, paracontractAddress, gas);
@@ -228,7 +227,7 @@ public class ERC1155Test {
 
 			System.out.println("next:" + result.getTx().getNext());
 			QueryTransactionResult nextResult = client.queryTransaction(result.getTx().getNext());
-			System.out.println("ty:" + nextResult.getReceipt().getTyname());
+			System.out.print("ty = :" + nextResult.getReceipt().getTyname());
 			nextString = result.getTx().getNext();
 			break;
 		}
@@ -236,7 +235,7 @@ public class ERC1155Test {
 		
 		txResult = client.queryTransaction(nextString);
 		if ("ExecOk".equals(txResult.getReceipt().getTyname())) {
-			System.out.println("合约调用成功");
+			System.out.println("  合约调用成功");
 			
 		} else {
 			System.out.println("合约调用失败，一般失败原因可能是因为地址下手续费不够");

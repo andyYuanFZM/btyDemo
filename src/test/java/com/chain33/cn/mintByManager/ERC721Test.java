@@ -8,7 +8,6 @@ import org.junit.Test;
 import com.alibaba.fastjson.JSONObject;
 import com.chain33.cn.CommonUtil;
 
-import cn.chain33.javasdk.client.Account;
 import cn.chain33.javasdk.client.RpcClient;
 import cn.chain33.javasdk.model.AccountInfo;
 import cn.chain33.javasdk.model.decode.DecodeRawTransaction;
@@ -63,12 +62,12 @@ public class ERC721Test {
 	    @Test
 	    public void testERC721() throws Exception {
 	    	
-	    	// =======> 为用户A和B生成私钥和地址
-	    	AccountInfo infoA = createAccount();
+	    	// =======> step1： 为用户A和B生成私钥和地址
+	    	AccountInfo infoA = CommonUtil.createAccount();
 	    	useraAddress = infoA.getAddress();
 	    	useraPrivateKey = infoA.getPrivateKey();
 	    	
-	    	AccountInfo infoB = createAccount();
+	    	AccountInfo infoB = CommonUtil.createAccount();
 	    	userbAddress = infoB.getAddress();
 	    	userbPrivateKey = infoB.getPrivateKey();
 	    	
@@ -98,8 +97,14 @@ public class ERC721Test {
 	        String paracontractAddress = client.convertExectoAddr(execer);
 	        // 用户A将第1个NFT转给用户B
 	    	byte[] transfer = EvmUtil.encodeParameter(CommonUtil.abi_Manager_721, "safeTransferFrom", useraAddress, userbAddress, tokenId);
+	    	
+	    	// transfer NFT的GAS费
+	        String evmCode = EvmUtil.getCallEvmEncode(transfer, "transfer", 0, contractAddress, paraName);
+	        long gas = client.queryEVMGas("evm", evmCode, useraAddress);
+	        System.out.println("调用transfer方法的Gas fee:" + gas);
+	        
 	    	// 构造转账交易体，先用用户A对此笔交易签名，
-	    	String txEncode = EvmUtil.callEvmContractWithhold(transfer,"", 0, execer, useraPrivateKey, contractAddress);
+	    	String txEncode = EvmUtil.callEvmContractWithholdByGas(transfer,"", 0, execer, useraPrivateKey, contractAddress,gas);
 	    	// 再调用代扣交易方法，用代扣私钥对交易组做签名
 	    	createNobalance(txEncode, paracontractAddress, useraPrivateKey, withholdPrivateKey);
 
@@ -114,16 +119,6 @@ public class ERC721Test {
 	        // =======>   查询token URI
 	        packAbiGet = EvmUtil.encodeParameter(CommonUtil.abi_Manager_721, "tokenURI", tokenId);
 	        queryContractString(packAbiGet, contractAddress, "NFTID=" + tokenId + "的URI信息");
-	    }
-	    
-	    /**
-	     * Step1: 生成私钥，地址
-	     * 一般在用户注册时调用，生成后在数据库中和用户信息绑定，后续直接从库中查出来使用
-	     */
-	    private AccountInfo createAccount() {
-	    	Account account = new Account();
-			AccountInfo accountInfo = account.newAccountLocal();
-			return accountInfo;
 	    }
 	    
 	    /**
@@ -192,9 +187,8 @@ public class ERC721Test {
 	        String evmCode = EvmUtil.getCallEvmEncode(code, "", 0, contractAddr, execer);
 	        long gas = client.queryEVMGas("evm", evmCode, address);
 	        System.out.println("Gas fee is:" + gas);
-	        long fee = gas + 100000;
 	        
-	    	txEncode = EvmUtil.callEvmContract(code,"", 0, contractAddr, privateKey, execer, fee);
+	    	txEncode = EvmUtil.callEvmContract(code,"", 0, contractAddr, privateKey, execer, gas);
 	        txhash = client.submitTransaction(txEncode);
 	        System.out.println("调用合约hash = " + txhash);
 	        
