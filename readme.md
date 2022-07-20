@@ -214,7 +214,7 @@ String paraName = "user.p.mbaas.";
 
 #### GO-SDK  
 适用于应用平台使用Golang开发的情况,SDK里包含了公私钥生成,合约部署方法,合约调用方法,交易签名,交易查询,区块链信息查询等方法。   
-GO-SDK的使用参考链接： [[GO-SDK]](https://github.com/33cn/chain33-sdk-go)   
+GO-SDK的使用参考链接： [[GO-SDK]](https://github.com/andyYuanFZM/go-sdk-demo)   
 
 ## 应用和BTY平行链对接注意事项   
 由于BTY主链涉及燃料费,同时森田主链平均每3秒一个确认的特性,可能会存在交易的失败,主要有以下两大类情况：  
